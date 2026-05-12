@@ -1,0 +1,44 @@
+name: Kill All Running Workflows
+
+on:
+  workflow_dispatch:      # فقط دستی اجرا می‌شه، مثل دکمه‌ی انفجار
+
+permissions:
+  actions: write          # مجوز لغو اجراهای دیگه
+
+jobs:
+  terminate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: متوقف کردن تمام workflowهای در حال اجرا
+        env:
+          # اولویت با GH_TOKEN (Personal Access Token) که خودت می‌سازی
+          # اگه نساختی، خود گیت‌هاب از GITHUB_TOKEN پیش‌فرض استفاده می‌کنه
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          echo "🔍 در حال دریافت لیست workflowهای در حال اجرا..."
+          
+          # گرفتن ID تمام اجراهایی که در وضعیت in_progress، queued یا waiting هستن
+          RUNNING_IDS=$(gh run list --status in_progress --status queued --status waiting --json databaseId -q '.[].databaseId')
+          
+          if [ -z "$RUNNING_IDS" ]; then
+            echo "✅ هیچ workflow فعالی برای متوقف کردن وجود نداره. خداحافظ!"
+            exit 0
+          fi
+          
+          echo "⚠️ workflowهای زیر در حال اجرا هستن و متوقف خواهند شد:"
+          for rid in $RUNNING_IDS; do
+            echo "  • اجرای شماره: $rid"
+          done
+          
+          echo ""
+          echo "⏹️ شروع عملیات توقف..."
+          for rid in $RUNNING_IDS; do
+            echo "  🛑 در حال توقف اجرای $rid ..."
+            # اگه خطایی هم پیش بیاد (مثلاً اجرا خودش تموم شده باشه)،
+            # ادامه می‌ده و بقیه رو هم متوقف می‌کنه.
+            gh run cancel "$rid" 2>/dev/null || echo "  ⚠️ اجرای $rid از قبل تموم شده بود."
+          done
+          
+          echo ""
+          echo "✅ عملیات پاکسازی کامل شد. همه چی خاموشه (حتی خودم تا چند لحظه دیگه)."
