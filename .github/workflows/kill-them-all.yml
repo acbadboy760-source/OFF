@@ -1,45 +1,55 @@
-name: Kill All Running Workflows
+name: Kill All Workflows (All Repos)
 
 on:
   workflow_dispatch:
-
-permissions:
-  actions: write          # مجوز لغو اجراها
 
 jobs:
   terminate:
     runs-on: ubuntu-latest
     steps:
-      - name: دریافت کدها (برای دسترسی به ریپوی Git)
-        uses: actions/checkout@v4
-
-      - name: متوقف کردن تمام workflowهای در حال اجرا
+      - name: متوقف کردن تمام workflowهای فعال در همه مخازن
         env:
-          # اولویت با توکنی که خودت درست کردی. اگه نباشه، GITHUB_TOKEN پیش‌فرض استفاده می‌شه.
-          GH_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          echo "🔍 در حال دریافت لیست workflowهای در حال اجرا..."
+          echo "🔍 دریافت لیست تمام مخازن..."
 
-          # گرفتن ID تمام اجراهایی که هنوز تموم نشدن
-          RUNNING_IDS=$(gh run list --status in_progress --status queued --status waiting --json databaseId -q '.[].databaseId')
+          # صفحه‌بندی: حداکثر ۵۰ مخزن در هر صفحه (تا ۱۰۰۰ مخزن)
+          PAGE=1
+          ALL_REPOS=""
+          while : ; do
+            REPOS=$(curl -s -H "Authorization: token $GH_TOKEN" \
+                       "https://api.github.com/user/repos?per_page=100&page=$PAGE" | \
+                       jq -r '.[].full_name')
+            if [ -z "$REPOS" ]; then
+              break
+            fi
+            ALL_REPOS="$ALL_REPOS $REPOS"
+            PAGE=$((PAGE + 1))
+          done
 
-          if [ -z "$RUNNING_IDS" ]; then
-            echo "✅ هیچ workflow فعالی برای متوقف کردن وجود نداره. خداحافظ!"
-            exit 0
-          fi
-
-          echo "⚠️ workflowهای زیر در حال اجرا هستن و متوقف خواهند شد:"
-          for rid in $RUNNING_IDS; do
-            echo "  • اجرای شماره: $rid"
+          TOTAL=0
+          for REPO in $ALL_REPOS; do
+            echo ""
+            echo "📁 بررسی مخزن: $REPO"
+            
+            RUN_IDS=$(curl -s -H "Authorization: token $GH_TOKEN" \
+                       "https://api.github.com/repos/$REPO/actions/runs?status=in_progress" | \
+                       jq -r '.workflow_runs[].id')
+            RUN_COUNT=$(echo "$RUN_IDS" | wc -w)
+            
+            if [ -z "$RUN_IDS" ]; then
+              echo "  ✅ هیچ اجرای فعالی در این مخزن نیست."
+              continue
+            fi
+            
+            echo "  ⚠️ تعداد اجراهای فعال: $RUN_COUNT"
+            for rid in $RUN_IDS; do
+              echo "  🛑 توقف اجرای $rid در $REPO ..."
+              curl -s -X POST -H "Authorization: token $GH_TOKEN" \
+                   "https://api.github.com/repos/$REPO/actions/runs/$rid/cancel" > /dev/null
+              TOTAL=$((TOTAL + 1))
+            done
           done
 
           echo ""
-          echo "⏹️ شروع عملیات توقف..."
-          for rid in $RUNNING_IDS; do
-            echo "  🛑 در حال توقف اجرای $rid ..."
-            # اگه اجرا از قبل تموم شده باشه، خطاش رو نادیده می‌گیریم
-            gh run cancel "$rid" 2>/dev/null || echo "  ⚠️ اجرای $rid از قبل تموم شده بود."
-          done
-
-          echo ""
-          echo "✅ عملیات پاکسازی کامل شد. همه چی خاموشه."
+          echo "✅ عملیات کامل شد. تعداد کل اجراهای متوقف‌شده: $TOTAL"
