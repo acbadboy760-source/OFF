@@ -17,7 +17,7 @@ jobs:
           PAGE=1
           ALL_REPOS=""
           while : ; do
-            REPOS=$(curl -s -H "Authorization: token $GH_TOKEN" \
+            REPOS=$(curl -s -H "Authorization: token $GH_TOKEN1" \
                        "https://api.github.com/user/repos?per_page=100&page=$PAGE" | \
                        jq -r '.[].full_name')
             if [ -z "$REPOS" ]; then
