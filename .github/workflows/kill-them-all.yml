@@ -32,7 +32,7 @@ jobs:
             echo ""
             echo "📁 بررسی مخزن: $REPO"
             
-            RUN_IDS=$(curl -s -H "Authorization: token $GH_TOKEN" \
+            RUN_IDS=$(curl -s -H "Authorization: token $GH_TOKEN1" \
                        "https://api.github.com/repos/$REPO/actions/runs?status=in_progress" | \
                        jq -r '.workflow_runs[].id')
             RUN_COUNT=$(echo "$RUN_IDS" | wc -w)
@@ -45,7 +45,7 @@ jobs:
             echo "  ⚠️ تعداد اجراهای فعال: $RUN_COUNT"
             for rid in $RUN_IDS; do
               echo "  🛑 توقف اجرای $rid در $REPO ..."
-              curl -s -X POST -H "Authorization: token $GH_TOKEN" \
+              curl -s -X POST -H "Authorization: token $GH_TOKEN1" \
                    "https://api.github.com/repos/$REPO/actions/runs/$rid/cancel" > /dev/null
               TOTAL=$((TOTAL + 1))
             done
