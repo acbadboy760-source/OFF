@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: متوقف کردن تمام workflowهای فعال در همه مخازن
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN1: ${{ secrets.GH_TOKEN1 }}
         run: |
           echo "🔍 دریافت لیست تمام مخازن..."
 
